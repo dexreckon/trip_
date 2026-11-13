@@ -365,7 +365,7 @@ async function renderDashboard() {
   <div class="hero"><div class="inner">
     <div class="row between"><div class="row"><span class="avatar">${esc(st.full_name.trim()[0] || '?').toUpperCase()}</span>
       <div><div class="small" style="opacity:.75">Welcome back</div><b>${esc(st.full_name.split(' ')[0])}</b></div></div>
-      <div class="row"><span class="pill">✅ ${esc(st.roll_no)}</span><button class="icon-btn" id="lo" aria-label="Log out">${icon('logout', 20)}</button></div></div>
+      <div class="row"><span class="pill">${esc(st.roll_no)}</span><button class="icon-btn" id="lo" aria-label="Log out">${icon('logout', 20)}</button></div></div>
     <div class="dim-label">Trip starts in</div>
     <div class="countdown" id="cd"></div>
     <p id="d-dest" style="margin-top:16px"></p>
@@ -612,6 +612,8 @@ const OverviewTab = {
         return `<div style="margin:10px 0"><div class="row between small"><span>${c.icon} ${c.label}</span><b>${n} / ${conf.length}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
       }).join('')}</div>
     </div>`;
+    el.insertAdjacentHTML('beforeend', `<div class="card row between"><div><b>Backup</b><div class="small muted">Download all data as an Excel file.</div></div><button class="btn sm" id="xlsx-ov">⬇ Excel backup</button></div>`);
+    $('#xlsx-ov', el).onclick = (e) => busy(e.currentTarget, exportExcel);
     $$('[data-go]', el).forEach((b) => b.onclick = () => showTab(b.dataset.go));
   },
 };
@@ -809,10 +811,10 @@ const SosTab = {
 /* ---------- Students ---------- */
 const StudentsTab = {
   mount(el) {
-    el.innerHTML = `<div class="card"><div class="row between"><h2 style="margin:0">All students</h2><button class="btn ghost sm" id="csv">⬇ Export CSV</button></div>
+    el.innerHTML = `<div class="card"><div class="row between"><h2 style="margin:0">All students</h2><button class="btn sm" id="xlsx">⬇ Excel backup</button></div>
       <input id="stu-q" placeholder="Search name, roll or phone…" style="margin:12px 0"><div id="stu-list"></div></div>`;
     $('#stu-q', el).oninput = () => this.update(el);
-    $('#csv', el).onclick = exportCSV;
+    $('#xlsx', el).onclick = (e) => busy(e.currentTarget, exportExcel);
     this.update(el);
   },
   update(el) {
@@ -833,11 +835,58 @@ function studentModal(s) {
     ${CHECKPOINTS.map((c) => `<div>${hasAtt(s.id, c.id) ? '✅' : '⬜'} ${c.label}</div>`).join('')}
     <button class="btn block" data-close>Close</button>`);
 }
-function exportCSV() {
-  const head = ['Name', 'Roll', 'Phone', 'Emergency name', 'Relation', 'Emergency phone', 'Status', 'Paid', ...CHECKPOINTS.map((c) => c.label)];
-  const rows = A.students.map((s) => [s.full_name, s.roll_no, s.phone, s.emergency_name, s.relation, s.emergency_phone, s.payment_status, s.paid_amount, ...CHECKPOINTS.map((c) => hasAtt(s.id, c.id) ? 'Yes' : 'No')]);
-  const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'trail5-students.csv'; a.click();
+async function exportExcel() {
+  if (!window.XLSX) throw new Error('Excel library failed to load. Check your internet and try again.');
+  await loadAdminData(); // always export the latest data from the database
+  const sheet = (rows, widths) => {
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Info: 'No data' }]);
+    ws['!cols'] = widths.map((w) => ({ wch: w }));
+    return ws;
+  };
+  const when = (d) => (d ? fmtDT(d) : '');
+  const byId = Object.fromEntries(A.students.map((s) => [s.id, s]));
+  const cpLabel = Object.fromEntries(CHECKPOINTS.map((c) => [c.id, c.label]));
+
+  const students = A.students.map((s) => {
+    const row = {
+      Name: s.full_name, 'Roll number': s.roll_no, Phone: s.phone || '',
+      'Emergency contact': s.emergency_name || '', Relation: s.relation, 'Emergency phone': s.emergency_phone,
+      'Payment status': s.payment_status, 'Amount paid': s.paid_amount || 0,
+      'Proof sent': when(s.proof_submitted_at), 'Confirmed at': when(s.confirmed_at), 'Reject reason': s.reject_reason || '',
+      Registered: when(s.created_at),
+    };
+    CHECKPOINTS.forEach((c) => { const a = A.attendance.find((x) => x.student_id === s.id && x.checkpoint === c.id); row[c.label] = a ? when(a.created_at) : ''; });
+    return row;
+  });
+  const attendance = [...A.attendance].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map((a) => ({
+    Time: when(a.created_at), Checkpoint: cpLabel[a.checkpoint] || a.checkpoint,
+    Name: byId[a.student_id]?.full_name || '', 'Roll number': byId[a.student_id]?.roll_no || '',
+  }));
+  const emergencies = A.emergencies.map((e) => ({
+    Time: when(e.created_at), Name: e.students?.full_name || '', 'Roll number': e.students?.roll_no || '',
+    Phone: e.students?.phone || '', 'Emergency phone': e.students?.emergency_phone || '', Note: e.message || '',
+    Location: e.lat ? `https://maps.google.com/?q=${e.lat},${e.lng}` : '', Status: e.resolved ? 'Handled' : 'Open',
+  }));
+  const alerts = A.alerts.map((a) => ({ Time: when(a.created_at), Message: a.message }));
+  const conf = confirmedStudents();
+  const summary = [
+    { Item: 'Exported at', Value: fmtDT(new Date()) },
+    { Item: 'Trip', Value: A.settings.trip_name }, { Item: 'Destination', Value: A.settings.destination },
+    { Item: 'Trip date', Value: when(A.settings.trip_date) }, { Item: 'Price per student', Value: A.settings.price },
+    { Item: 'Registered students', Value: A.students.length }, { Item: 'Confirmed students', Value: conf.length },
+    { Item: 'Pending verifications', Value: pendingCount() },
+    { Item: 'Money collected', Value: conf.reduce((n, s) => n + (s.paid_amount || 0), 0) },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheet(summary, [26, 40]), 'Summary');
+  XLSX.utils.book_append_sheet(wb, sheet(students, [24, 16, 15, 20, 11, 16, 14, 12, 20, 20, 24, 20, 20, 20, 20, 20]), 'Students');
+  XLSX.utils.book_append_sheet(wb, sheet(attendance, [20, 22, 24, 16]), 'Attendance log');
+  XLSX.utils.book_append_sheet(wb, sheet(emergencies, [20, 24, 16, 15, 16, 36, 42, 10]), 'Emergencies');
+  XLSX.utils.book_append_sheet(wb, sheet(alerts, [20, 90]), 'Alerts sent');
+  XLSX.writeFile(wb, `trail5-backup-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  toast('Backup downloaded', 'ok');
+  refreshAdmin();
 }
 
 /* ---------- Settings ---------- */
