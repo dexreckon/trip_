@@ -84,11 +84,16 @@ create table if not exists public.emergencies (
 create table if not exists public.attendance (
   id         bigint generated always as identity primary key,
   student_id uuid not null references public.students(id) on delete cascade,
-  checkpoint text not null check (checkpoint in ('depart_uni','arrive_trail','depart_food','return_uni')),
+  checkpoint text not null,
   marked_by  uuid default auth.uid(),
   created_at timestamptz not null default now(),
   unique (student_id, checkpoint)
 );
+
+-- Allowed checkpoints (safe to re-run; also upgrades older databases)
+alter table public.attendance drop constraint if exists attendance_checkpoint_check;
+alter table public.attendance add constraint attendance_checkpoint_check
+  check (checkpoint in ('depart_uni','arrive_trail','depart_food','depart_trail','return_uni'));
 
 -- ---------- Row Level Security ----------
 alter table public.organizers  enable row level security;

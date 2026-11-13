@@ -1,5 +1,5 @@
 ﻿// Service worker: makes the app installable and keeps the shell (and the student's QR) available with poor signal.
-const VERSION = 'mt5-v4';
+const VERSION = 'mt5-v5';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {

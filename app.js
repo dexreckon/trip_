@@ -9,7 +9,8 @@ const CHECKPOINTS = [
   { id: 'depart_uni',   label: 'Left University',    icon: '🚌' },
   { id: 'arrive_trail', label: 'Arrived at Trail 5', icon: '⛰️' },
   { id: 'depart_food',  label: 'Leaving for Food',   icon: '🍽️' },
-  { id: 'return_uni',   label: 'Back at University', icon: '🏫' },
+  { id: 'depart_trail', label: 'Leaving for University', icon: '🚐' },
+  { id: 'return_uni',   label: 'Arrived at University', icon: '🏫' },
 ];
 const RELATIONS = ['Father', 'Mother', 'Brother', 'Sister', 'Uncle', 'Aunt', 'Guardian', 'Other'];
 const QR_PREFIX = 'MT5:';

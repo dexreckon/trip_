@@ -31,7 +31,7 @@ Organizers log in on the same site using the **Log in** tab with their **email**
 | Student dashboard | Countdown, destination/details, live organizer messages, personal QR code, trip progress timeline, 🚨 Emergency button |
 | Organizer | Overview (students, money collected, pending), Payments (view screenshot → Confirm / Reject with reason), Attendance (scan QR or mark manually for 4 checkpoints), Alerts (broadcast), Emergencies (call student / family, map link), Students (search, CSV export), Settings (price etc.) |
 
-Attendance checkpoints: Left University → Arrived at Trail 5 → Leaving for Food → Back at University.
+Attendance checkpoints: Left University → Arrived at Trail 5 → Leaving for Food → Leaving for University → Arrived at University.
 
 ## Home-screen install ("shortcut")
 - **Android / Chrome**: an *"Add Trail 5 Trip to your home screen — Install"* banner appears automatically; one tap installs it.
