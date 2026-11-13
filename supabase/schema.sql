@@ -17,8 +17,10 @@ returns boolean language sql security definer stable set search_path = public as
 $$;
 
 create or replace function public.is_confirmed_student()
-returns boolean language sql security definer stable set search_path = public as $$
-  select exists (select 1 from public.students where id = auth.uid() and payment_status = 'confirmed');
+returns boolean language plpgsql security definer stable set search_path = public as $$
+begin
+  return exists (select 1 from public.students where id = auth.uid() and payment_status = 'confirmed');
+end;
 $$;
 
 -- ---------- Trip settings (single row) ----------
