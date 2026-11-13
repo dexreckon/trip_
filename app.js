@@ -141,7 +141,14 @@ async function boot() {
       <p>Open <code>config.js</code> and paste your Supabase URL and anon key, then redeploy. See README.md.</p></div></div>`;
     return;
   }
-  sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+  let url = String(CFG.SUPABASE_URL).trim().replace(/\/+$/, '').replace(/\/(rest|auth|storage)\/v1.*$/, '');
+  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/i.test(url)) {
+    app.innerHTML = `<div class="wrap"><div class="card"><h2>Supabase URL looks wrong</h2>
+      <p>It should look like <code>https://abcdxyz.supabase.co</code> (Supabase → Project Settings → API → Project URL).<br>Currently: <code>${esc(CFG.SUPABASE_URL)}</code></p></div></div>`;
+    return;
+  }
+  sb = window.supabase.createClient(url, String(CFG.SUPABASE_ANON_KEY).trim());
   const { data } = await sb.auth.getSession();
   S.session = data.session;
   sb.auth.onAuthStateChange((ev, s) => { if (ev === 'SIGNED_OUT') { S.session = null; S.student = null; route(); } });
